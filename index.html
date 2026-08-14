@@ -16,6 +16,18 @@
   <link rel="stylesheet" href="./css/task-wow.css?v=8">
   <link rel="stylesheet" href="./css/task-rework.css?v=1">
   <link rel="stylesheet" href="./css/word-card-premium.css?v=11">
+  <style>
+    /* Слово с пропуском всегда остаётся целиком на одной строке. */
+    .task-console h1 .masked-word {
+      display: inline-block;
+      white-space: nowrap;
+      vertical-align: baseline;
+    }
+    .task-console h1 .masked-word .answer-part {
+      display: inline-block;
+      vertical-align: baseline;
+    }
+  </style>
 </head>
 <body>
   <div class="space-noise" aria-hidden="true"></div>
@@ -38,6 +50,6 @@
     </section>
   </main>
   <script src="./js/api.js?v=4"></script>
-  <script src="./js/app.js?v=14"></script>
+  <script src="./js/app.js?v=16"></script>
 </body>
 </html>

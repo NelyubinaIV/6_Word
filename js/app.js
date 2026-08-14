@@ -174,21 +174,43 @@ function renderSpelling(w){
 }
 
 function renderPracticeMask(mask){
-  let html=escapeHTML(mask||'');
+  let prepared=String(mask||'');
   let counter=0;
+  const gapTokens=[];
 
-  const renderAnswerPart=()=>{
+  const addGapToken=()=>{
     counter+=1;
-    return `<input class="answer-part" data-part="${counter}" aria-label="Введи пропущенные буквы" autocomplete="off" spellcheck="false" placeholder="•••">`;
+    const token=`@@ACADEMY_GAP_${counter}@@`;
+    gapTokens.push(token);
+    return token;
   };
 
-  html=html.replace(/\{(\d+)\}/g,()=>renderAnswerPart());
+  // Сначала заменяем пропуски служебными маркерами.
+  // Это позволяет найти всё слово с пропуском и запретить перенос внутри него.
+  prepared=prepared.replace(/\{(\d+)\}/g,()=>addGapToken());
 
   if(counter===0){
-    html=html.replace(/\[\s*\]/g,()=>{
-      return renderAnswerPart();
-    });
+    prepared=prepared.replace(/\[\s*\]/g,()=>addGapToken());
   }
+
+  const renderAnswerPart=(partNumber)=>
+    `<input class="answer-part" data-part="${partNumber}" aria-label="Введи пропущенные буквы" autocomplete="off" spellcheck="false" placeholder="•••">`;
+
+  const html=prepared.split(/(\s+)/).map(part=>{
+    if(/^\s+$/.test(part)) return escapeHTML(part);
+
+    let partHTML=escapeHTML(part);
+    let hasGap=false;
+
+    gapTokens.forEach((token,index)=>{
+      if(partHTML.includes(token)){
+        hasGap=true;
+        partHTML=partHTML.split(token).join(renderAnswerPart(index+1));
+      }
+    });
+
+    return hasGap ? `<span class="masked-word">${partHTML}</span>` : partHTML;
+  }).join('');
 
   return {html,count:counter};
 }
@@ -248,12 +270,56 @@ function renderWord(){ const w=currentWord(); if(!w){finishSession();return;} co
 // ./assets/words/images/word-1.png и ./assets/words/audio/word-1.mp3 и т. д.
 function renderWordCard(w){ const wordHTML=renderSpelling(w); const plainWord=escapeHTML(w.word||'Новое слово'); const wordId=w.wordId??w.word_id; const imageSrc=wordId!=null?`./assets/words/images/word-${wordId}.png`:'./assets/illustrations/word-magic.png'; const audioSrc=wordId!=null?`./assets/words/audio/word-${wordId}.mp3`:null; const content=`<div class="lesson-top"><button class="back-link" data-route="home">← В кабинет</button><div class="lesson-progress"><span>Слово ${Math.min(state.currentIndex+1,state.originalWordCount)} из ${state.originalWordCount}</span><div><i style="width:${state.originalWordCount?Math.min(100,(state.sessionStats.processedCount/state.originalWordCount)*100):0}%"></i></div></div><span class="mode-chip">${state.sessionType==='difficult'?'СЛОЖНЫЕ СЛОВА':'НОВЫЕ СЛОВА'}</span></div><section class="word-card word-card-premium"><div class="word-copy"><div class="ambient-orbit" aria-hidden="true"><i></i><i></i><i></i></div><div class="card-step"><span>ШАГ 1 ИЗ 2</span><b>ЗАПОМНИ СЛОВО</b></div><div class="word-stage"><div class="stage-shine" aria-hidden="true"></div><span class="eyebrow">СЛОВО ТВОЕЙ МИССИИ</span><h1 data-word="${plainWord}">${wordHTML}</h1><div class="word-underline" aria-hidden="true"><i></i><i></i><i></i></div></div><div class="meaning"><span class="meaning-icon">✦</span><div><b>Что это значит</b><p>${escapeHTML(w.meaning||'Запомни правильное написание этого слова.')}</p></div></div><div class="word-actions">${audioSrc?'<button class="sound" id="sound">🔊 Послушать</button>':''}<button class="cta" id="to-task">Готов проверить себя <span>→</span></button></div></div><div class="word-art"><div class="poster-glow"></div><img src="${escapeHTML(imageSrc)}" alt="Учебный постер к слову ${plainWord}" onerror="this.onerror=null;this.src='./assets/illustrations/word-magic.png'"><div class="art-label">✦ ПОСТЕР ЗНАНИЙ</div></div></section>`; app.innerHTML=shell(content,state.sessionType==='learning'?'new':state.sessionType);bindShell();document.querySelector('#to-task').onclick=()=>{w._showTask=true;renderTask(w);}; const sound=document.querySelector('#sound');if(sound)sound.onclick=()=>new Audio(audioSrc).play().catch(()=>showToast('Не удалось воспроизвести аудио','error')); const card=document.querySelector('.word-card-premium');if(card&&matchMedia('(hover:hover) and (pointer:fine)').matches){card.onpointermove=e=>{const r=card.getBoundingClientRect();card.style.setProperty('--mx',`${((e.clientX-r.left)/r.width)*100}%`);card.style.setProperty('--my',`${((e.clientY-r.top)/r.height)*100}%`);card.style.setProperty('--ry',`${(((e.clientX-r.left)/r.width)-.5)*7}deg`);card.style.setProperty('--rx',`${(.5-((e.clientY-r.top)/r.height))*5}deg`);};card.onpointerleave=()=>{card.style.setProperty('--ry','0deg');card.style.setProperty('--rx','0deg');};} }
 function renderTask(w){ const rendered=renderPracticeMask(w.practiceMask||w.practice_mask||''); if(!rendered.count){showToast('Сервер не передал корректную маску упражнения','error');return;} const modeLabel=state.sessionType==='review'?'ИНТЕРВАЛЬНОЕ ПОВТОРЕНИЕ':state.sessionType==='difficult'?'ОТРАБОТКА СЛОЖНОГО СЛОВА':'ПРОВЕРЯЕМ НАПИСАНИЕ'; const content=`<div class="lesson-top"><button class="back-link" id="back-card">${state.sessionType==='review'?'← В кабинет':'← К карточке'}</button><div class="lesson-progress"><span>Задание ${Math.min(state.currentIndex+1,state.originalWordCount)} из ${state.originalWordCount}</span><div><i style="width:${state.originalWordCount?Math.min(100,(state.sessionStats.processedCount/state.originalWordCount)*100):0}%"></i></div></div><span class="mode-chip">${modeLabel}</span></div><section class="task-card task-game"><div class="task-stars" aria-hidden="true"><i>✦</i><i>·</i><i>✧</i><i>·</i><i>✦</i></div><aside class="task-robot"><div class="robot-message"><span>СООБЩЕНИЕ ОТ БОРТА</span><b>Расшифруй слово!</b><small>Я верю в тебя 🚀</small></div><img src="./assets/illustrations/robot-guide.png" alt="Робот-помощник"></aside><div class="task-console"><div class="task-orbit">✦</div><span class="eyebrow">КОСМИЧЕСКИЙ ДЕШИФРАТОР</span><div class="mission-label"><span>МИССИЯ ${state.sessionStats.processedCount+1}</span><i></i><b>ВСТАВЬ БУКВЫ</b></div><h1>${rendered.html}</h1><p>Вспомни слово целиком и восстанови потерянную часть.</p><div id="feedback" class="feedback" role="status"></div><button class="cta" id="check">Проверить ответ <span>→</span></button><small>↵ Можно нажать Enter</small></div></section>`; app.innerHTML=shell(content,state.sessionType==='learning'?'new':state.sessionType);bindShell(); const inputs=Array.from(document.querySelectorAll('.answer-part')); inputs[0]?.focus(); document.querySelector('#check').onclick=()=>checkAnswer(w); inputs.forEach((input,index)=>input.onkeydown=e=>{if(e.key==='Enter'){if(index<inputs.length-1)inputs[index+1].focus();else checkAnswer(w);}}); document.querySelector('#back-card').onclick=()=>{ if(state.sessionType==='review')loadDashboard();else renderWordCard(w); }; }
-async function checkAnswer(w){ const inputs=Array.from(document.querySelectorAll('.answer-part')), btn=document.querySelector('#check'), feedback=document.querySelector('#feedback'); const answer=collectAnswer(); if(!answer||inputs.some(i=>!i.value.trim())){inputs.find(i=>!i.value.trim())?.focus();feedback.className='feedback error visible';feedback.textContent='Введи все пропущенные буквы.';return;} buttonLoading(btn,true,'Проверяем…'); try { const data=await api('/check',{method:'POST',body:JSON.stringify({wordId:w.wordId??w.word_id,answer})}); applyCheckToStats(data,w); const correct=data.correct===true; const days=data.nextReviewInDays; const stars=Number(data.starsAwarded||0); const messages={learned_first_try:`Верно! ⭐ +${stars}`,repeat_later:`Пока не получилось. Слово вернётся через ${data.repeatAfterWords||3} других слова.`,learned_after_retry:`Верно со второй попытки! ⭐ +${stars}`,mark_difficult:'Слово отправлено в «Сложные». Мы вернёмся к нему отдельно.',difficult_recovered:`Отлично! Слово возвращено в обычный цикл.${days?` Повторение через ${days} дн.`:''}`,difficult_still_wrong:'Слово пока остаётся в разделе «Сложные».',review_correct:`Верно!${days?` Следующее повторение через ${days} дн.`:''}`,review_correct_after_retry:`Верно со второй попытки!${days?` Следующее повторение через ${days} дн.`:''}`,review_repeat_later:`Есть ошибка. Слово вернётся через ${data.repeatAfterWords||3} других слова.`,review_mark_difficult:'Слово отправлено в «Сложные».'}; feedback.className=`feedback ${correct?'success':'error'} visible`; feedback.textContent=messages[data.action]||data.message||(correct?'Верно!':'Есть ошибка.'); inputs.forEach(i=>i.disabled=true); btn.innerHTML=`Продолжить <span>→</span>`;btn.disabled=false;btn.onclick=()=>advance(data,w); } catch(err){feedback.className='feedback error visible';feedback.textContent=err.message;buttonLoading(btn,false);} }
+async function checkAnswer(w){ const inputs=Array.from(document.querySelectorAll('.answer-part')), btn=document.querySelector('#check'), feedback=document.querySelector('#feedback'); const answer=collectAnswer(); if(!answer||inputs.some(i=>!i.value.trim())){inputs.find(i=>!i.value.trim())?.focus();feedback.className='feedback error visible';feedback.textContent='Введи все пропущенные буквы.';return;} buttonLoading(btn,true,'Проверяем…'); try { const data=await api('/check',{method:'POST',body:JSON.stringify({wordId:w.wordId??w.word_id,answer})}); applyCheckToStats(data,w); const correct=data.correct===true; const days=data.nextReviewInDays; const stars=Number(data.starsAwarded||0); const messages={learned_first_try:`Верно! ⭐ +${stars}`,repeat_later:'Есть ошибка. Слово отправлено в «Сложные».',learned_after_retry:`Верно со второй попытки! ⭐ +${stars}`,mark_difficult:'Слово отправлено в «Сложные». Мы вернёмся к нему отдельно.',difficult_recovered:`Отлично! Слово возвращено в обычный цикл.${days?` Повторение через ${days} дн.`:''}`,difficult_still_wrong:'Слово пока остаётся в разделе «Сложные».',review_correct:`Верно!${days?` Следующее повторение через ${days} дн.`:''}`,review_correct_after_retry:`Верно со второй попытки!${days?` Следующее повторение через ${days} дн.`:''}`,review_repeat_later:'Есть ошибка. Слово отправлено в «Сложные».',review_mark_difficult:'Слово отправлено в «Сложные».'}; feedback.className=`feedback ${correct?'success':'error'} visible`; feedback.textContent=messages[data.action]||data.message||(correct?'Верно!':'Есть ошибка.'); inputs.forEach(i=>i.disabled=true); btn.innerHTML=`Продолжить <span>→</span>`;btn.disabled=false;btn.onclick=()=>advance(data,w); } catch(err){feedback.className='feedback error visible';feedback.textContent=err.message;buttonLoading(btn,false);} }
 function advance(data,w){ const needsRetry=data.action==='repeat_later'||data.action==='review_repeat_later'; if(needsRetry){w._showTask=true; const insertAt=Math.min(state.currentIndex+4,state.words.length); state.words.splice(insertAt,0,w);} state.currentIndex++; renderWord(); }
 async function finishSession(){ app.innerHTML=`<div class="loading-screen"><div class="loader-planet">⭐</div><b>Подводим итоги миссии…</b></div>`; try { await api('/finish-session',{method:'POST',body:JSON.stringify({studySessionId:state.studySessionId})}); state.results={...state.sessionStats,completedWordIds:undefined}; renderResults(); } catch(err){renderError(err.message,true);} }
 function renderResults(){const r=state.results||{}, title=state.sessionType==='learning'?'МИССИЯ ЗАВЕРШЕНА':state.sessionType==='review'?'ПОВТОРЕНИЕ ЗАВЕРШЕНО':'ОТРАБОТКА ЗАВЕРШЕНА'; const items=state.sessionType==='difficult'?[['Вернулись в цикл',r.recoveredCount??0],['Остались сложными',r.stillDifficultCount??0],['Обработано',r.processedCount??0]]:[state.sessionType==='review'?['Сразу верно',r.correctFirstTry??0]:['С первой попытки',r.correctFirstTry??0],['После второй попытки',r.correctAfterRetry??0],['Сложные слова',r.difficultCount??0]]; const content=`<section class="result-card"><div class="result-star">★</div><span class="eyebrow">${title}</span><h1>Отличная работа,<br>${escapeHTML(displayName())}!</h1>${state.sessionType==='learning'?`<div class="earned">⭐ +${r.starsEarned??0}</div>`:''}<div class="result-stats">${items.map(([l,v])=>`<div><b>${v}</b><span>${l}</span></div>`).join('')}</div><button class="cta" id="home">Вернуться в кабинет <span>→</span></button></section>`;app.innerHTML=shell(content);bindShell();document.querySelector('#home').onclick=loadDashboard;}
 
-function route(name){ if(name==='home')return loadDashboard(); if(['new','review','difficult'].includes(name)){const count={new:state.dashboard.newCount,review:state.dashboard.reviewDueCount,difficult:state.dashboard.difficultCount}[name];if(count>0)return startSession(name);showToast('Сейчас для этой миссии нет доступных слов.');return;} if(name==='progress')return renderInfo('Мой прогресс','Твоя звёздная траектория',`Изучено: ${+state.dashboard.learnedCount||0}<br>Полностью освоено: ${+state.dashboard.masteredCount||0}`,'progress'); if(name==='dictionary')return renderInfo('Словарь','Бортовой словарь','Полный словарь подключим отдельным API. Сейчас здесь не показываем вымышленные данные.','dictionary'); if(name==='settings')return renderInfo('Настройки','Профиль курсанта',`Имя: ${escapeHTML(displayName())}<br>Для безопасности данные входа здесь не показываются.`,'settings'); }
+
+async function renderDictionary(){
+  app.innerHTML=`<div class="loading-screen"><div class="loader-planet">▤</div><b>Открываем бортовой журнал…</b></div>`;
+
+  try {
+    const data=await api('/dictionary');
+    const words=Array.isArray(data)?data:(data.words||[]);
+
+    const cards=words.map((w,index)=>{
+      const wordId=w.wordId??w.word_id;
+      const imageSrc=wordId!=null?`./assets/words/images/word-${wordId}.png`:'./assets/illustrations/word-magic.png';
+      const audioSrc=wordId!=null?`./assets/words/audio/word-${wordId}.mp3`:null;
+
+      return `<article class="panel" style="padding:18px;display:grid;grid-template-columns:76px 1fr auto;gap:16px;align-items:center;min-height:104px">
+        <img src="${escapeHTML(imageSrc)}" alt="" style="width:76px;height:76px;object-fit:cover;border-radius:14px" onerror="this.onerror=null;this.src='./assets/illustrations/word-magic.png'">
+        <div>
+          <small style="opacity:.65">СЛОВО ${index+1}</small>
+          <h2 style="margin:4px 0 6px;font-size:25px">${renderSpelling(w)}</h2>
+          <p style="margin:0;opacity:.78;line-height:1.45">${escapeHTML(w.meaning||'Словарное слово')}</p>
+        </div>
+        ${audioSrc?`<button type="button" class="sound" data-audio="${escapeHTML(audioSrc)}" aria-label="Послушать слово">🔊</button>`:''}
+      </article>`;
+    }).join('');
+
+    const content=`<div class="simple-head" style="margin-bottom:22px">
+      <span class="eyebrow">СЛОВАРЬ</span>
+      <h1>Бортовой журнал</h1>
+      <p>Здесь собраны все слова текущего словаря. Их можно посмотреть до и после миссии.</p>
+    </div>
+    <section style="display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:16px">
+      ${cards||'<article class="panel" style="padding:24px">Словарь пока пуст.</article>'}
+    </section>`;
+
+    app.innerHTML=shell(content,'dictionary');
+    bindShell();
+
+    document.querySelectorAll('[data-audio]').forEach(button=>{
+      button.onclick=()=>new Audio(button.dataset.audio).play().catch(()=>showToast('Не удалось воспроизвести аудио','error'));
+    });
+  } catch(err){
+    renderError(err.message);
+  }
+}
+
+function route(name){ if(name==='home')return loadDashboard(); if(['new','review','difficult'].includes(name)){const count={new:state.dashboard.newCount,review:state.dashboard.reviewDueCount,difficult:state.dashboard.difficultCount}[name];if(count>0)return startSession(name);showToast('Сейчас для этой миссии нет доступных слов.');return;} if(name==='progress')return renderInfo('Мой прогресс','Твоя звёздная траектория',`Изучено: ${+state.dashboard.learnedCount||0}<br>Полностью освоено: ${+state.dashboard.masteredCount||0}`,'progress'); if(name==='dictionary')return renderDictionary(); if(name==='settings')return renderInfo('Настройки','Профиль курсанта',`Имя: ${escapeHTML(displayName())}<br>Для безопасности данные входа здесь не показываются.`,'settings'); }
 function renderInfo(eyebrow,title,text,active){app.innerHTML=shell(`<div class="simple-head"><span class="eyebrow">${eyebrow.toUpperCase()}</span><h1>${title}</h1><p>${text}</p><button class="cta" data-route="home">Вернуться на главную <span>→</span></button></div>`,active);bindShell();}
 function renderError(message,canRetry=false){app.innerHTML=`<div class="loading-screen error-state"><div class="loader-planet">⚠</div><b>Связь прервалась</b><p>${escapeHTML(message)}</p>${canRetry?'<button class="cta" id="retry">Повторить</button>':'<button class="cta" id="retry">В кабинет</button>'}</div>`;document.querySelector('#retry').onclick=canRetry?finishSession:loadDashboard;}
 async function logout(){ try{await api('/logout',{method:'POST'});}catch(err){console.error('Logout:',err);}finally{setToken(null);setStoredUser(null);state.user=null;state.dashboard=null;resetLessonState();renderLogin();} }
