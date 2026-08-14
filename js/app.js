@@ -51,15 +51,75 @@ function buttonLoading(btn, on, label='Отправляем…') { if(!btn) retu
 function displayName(){ return state.user?.displayName || state.user?.display_name || state.dashboard?.displayName || 'курсант'; }
 function formatDate(value){ if(!value) return 'Дата пока не назначена'; const d=new Date(value); return Number.isNaN(d.valueOf())?'Дата пока не назначена':new Intl.DateTimeFormat('ru-RU',{day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'}).format(d); }
 
-function renderLogin(){
+function renderLogin(prefillLogin='', successMessage=''){
   app.innerHTML=`<section class="login-shell">
     <div class="login-story"><div class="brand"><span class="brand-mark">🚀</span><span>Космическая<br>академия слов</span></div><div class="robot-frame"><img src="./assets/illustrations/robot-guide.png" alt="Робот-проводник Академии"></div><div class="story-copy"><span class="eyebrow">ДОБРО ПОЖАЛОВАТЬ НА БОРТ</span><h1>Слова — это твоя<br><em>суперсила</em></h1><p>Тренируй память. Собирай звёзды.<br>Осваивай сложные слова.</p></div></div>
-    <div class="login-panel"><form id="login-form" class="login-card"><div class="mini-planet">✦</div><span class="eyebrow">СИСТЕМА ГОТОВА</span><h2>Вход в академию</h2><p>Введи данные курсанта, чтобы продолжить миссию.</p><label>Логин<input name="login" autocomplete="username" required placeholder="Твой логин"></label><label>Пароль<div class="password-wrap"><input name="password" type="password" autocomplete="current-password" required placeholder="Твой пароль"><button type="button" class="eye" aria-label="Показать пароль">◉</button></div></label><div id="login-error" class="form-error" role="alert"></div><button class="cta wide" type="submit">Войти в академию <span>→</span></button></form></div>
+    <div class="login-panel"><form id="login-form" class="login-card"><div class="mini-planet">✦</div><span class="eyebrow">СИСТЕМА ГОТОВА</span><h2>Вход в академию</h2><p>Введи данные курсанта, чтобы продолжить миссию.</p>${successMessage?`<div class="form-error" style="color:#7ee6bd;border-color:rgba(126,230,189,.35);background:rgba(126,230,189,.08)">${escapeHTML(successMessage)}</div>`:''}<label>Логин<input name="login" autocomplete="username" required placeholder="Твой логин" value="${escapeHTML(prefillLogin)}"></label><label>Пароль<div class="password-wrap"><input name="password" type="password" autocomplete="current-password" required placeholder="Твой пароль"><button type="button" class="eye" aria-label="Показать пароль">◉</button></div></label><div id="login-error" class="form-error" role="alert"></div><button class="cta wide" type="submit">Войти в академию <span>→</span></button><button type="button" id="open-register" style="width:100%;margin-top:12px;padding:11px 14px;border:1px solid rgba(126,160,236,.28);border-radius:12px;background:rgba(126,160,236,.06);color:#c7d4f4;font:inherit;font-weight:700;cursor:pointer">Впервые здесь? Зарегистрироваться</button></form></div>
   </section>`;
-  document.querySelector('.eye').onclick=e=>{const i=e.currentTarget.previousElementSibling;i.type=i.type==='password'?'text':'password';};
+  bindPasswordEyes();
   document.querySelector('#login-form').onsubmit=login;
+  document.querySelector('#open-register').onclick=renderRegister;
 }
 
+function bindPasswordEyes(){
+  document.querySelectorAll('.eye').forEach(button=>{
+    button.onclick=e=>{
+      const input=e.currentTarget.previousElementSibling;
+      input.type=input.type==='password'?'text':'password';
+    };
+  });
+}
+
+function renderRegister(){
+  app.innerHTML=`<section class="login-shell">
+    <div class="login-story"><div class="brand"><span class="brand-mark">🚀</span><span>Космическая<br>академия слов</span></div><div class="robot-frame"><img src="./assets/illustrations/robot-guide.png" alt="Робот-проводник Академии"></div><div class="story-copy"><span class="eyebrow">ПЕРВЫЙ ВЫХОД НА ОРБИТУ</span><h1>Стань курсантом<br><em>Академии</em></h1><p>Введи код класса от учителя<br>и создай свои данные для входа.</p></div></div>
+    <div class="login-panel"><form id="register-form" class="login-card"><div class="mini-planet">✦</div><span class="eyebrow">РЕГИСТРАЦИЯ КУРСАНТА</span><h2>Создать аккаунт</h2><p>Код класса выдаёт учитель. Логин и пароль придумай сам.</p><label>Имя<input name="displayName" autocomplete="name" required minlength="2" maxlength="64" placeholder="Например, Маша"></label><label>Код класса<input name="joinCode" autocomplete="off" required minlength="4" maxlength="32" placeholder="Например, 6A-KOSMOS" style="text-transform:uppercase"></label><label>Логин<input name="login" autocomplete="username" required minlength="3" maxlength="64" placeholder="Придумай логин"></label><label>Пароль<div class="password-wrap"><input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="Не меньше 8 символов"><button type="button" class="eye" aria-label="Показать пароль">◉</button></div></label><label>Повтори пароль<div class="password-wrap"><input name="passwordRepeat" type="password" autocomplete="new-password" required minlength="8" maxlength="128" placeholder="Повтори пароль"><button type="button" class="eye" aria-label="Показать пароль">◉</button></div></label><div id="register-error" class="form-error" role="alert"></div><button class="cta wide" type="submit">Зарегистрироваться <span>→</span></button><button type="button" id="back-login" style="width:100%;margin-top:12px;padding:11px 14px;border:1px solid rgba(126,160,236,.28);border-radius:12px;background:rgba(126,160,236,.06);color:#c7d4f4;font:inherit;font-weight:700;cursor:pointer">← Уже есть аккаунт</button></form></div>
+  </section>`;
+  bindPasswordEyes();
+  const form=document.querySelector('#register-form');
+  const codeInput=form.elements.joinCode;
+  codeInput.addEventListener('input',()=>{ codeInput.value=codeInput.value.toUpperCase().replace(/\s+/g,''); });
+  form.onsubmit=register;
+  document.querySelector('#back-login').onclick=()=>renderLogin();
+}
+
+async function register(e){
+  e.preventDefault();
+  const btn=e.submitter;
+  const error=document.querySelector('#register-error');
+  error.textContent='';
+  const fd=new FormData(e.currentTarget);
+  const displayNameValue=String(fd.get('displayName')||'').trim().replace(/\s+/g,' ');
+  const joinCodeValue=String(fd.get('joinCode')||'').trim().toUpperCase();
+  const loginValue=String(fd.get('login')||'').trim();
+  const password=String(fd.get('password')||'');
+  const passwordRepeat=String(fd.get('passwordRepeat')||'');
+
+  if(password!==passwordRepeat){
+    error.textContent='Пароли не совпадают.';
+    return;
+  }
+
+  buttonLoading(btn,true,'Создаём аккаунт…');
+  try {
+    const data=await api('/register',{
+      method:'POST',
+      body:JSON.stringify({
+        displayName:displayNameValue,
+        joinCode:joinCodeValue,
+        login:loginValue,
+        password,
+        passwordRepeat
+      })
+    });
+    const registeredLogin=data.user?.login||loginValue;
+    renderLogin(registeredLogin,data.message||'Регистрация завершена. Теперь войди в академию.');
+    showToast('Аккаунт создан. Теперь войди в академию.','success');
+  } catch(err){
+    error.textContent=err.message;
+    buttonLoading(btn,false);
+  }
+}
 
 async function login(e){ e.preventDefault(); const btn=e.submitter; const error=document.querySelector('#login-error'); error.textContent=''; buttonLoading(btn,true,'Проверяем доступ…'); const fd=new FormData(e.currentTarget); try { const data=await api('/login',{method:'POST',body:JSON.stringify({login:fd.get('login').trim(),password:fd.get('password')})}); const token=data.token||data.accessToken||data.sessionToken; if(!token) throw new Error('Сервер не вернул токен доступа.'); setToken(token); state.user=data.user||{displayName:data.displayName}; setStoredUser(state.user); await loadDashboard(); } catch(err){error.textContent=err.message; buttonLoading(btn,false);} }
 
