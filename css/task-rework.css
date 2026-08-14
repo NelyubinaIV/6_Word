@@ -1,0 +1,31 @@
+/* Reverse-side refresh: clear helper zone and explicit missing-letter count. */
+.task-robot {
+  background: radial-gradient(circle at 50% 65%, rgba(31, 119, 224, .25), transparent 45%), linear-gradient(180deg, rgba(8, 26, 69, .36), rgba(8, 20, 56, .78));
+}
+.task-robot::after {
+  content: "";
+  position: absolute;
+  left: 12%; right: 12%; bottom: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #45dff0, transparent);
+  box-shadow: 0 0 20px #2fb7dd;
+}
+.task-robot img {
+  width: 130%; height: 84%; left: -17%; bottom: -10%;
+  object-position: 50% 20%;
+  mask-image: linear-gradient(#000 82%, transparent 100%);
+}
+.robot-message {
+  position: relative; top: auto; right: auto;
+  width: auto;
+  margin: 26px 22px 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(10, 39, 90, .96), rgba(18, 29, 78, .94));
+  box-shadow: 0 14px 35px rgba(0, 0, 0, .25), inset 3px 0 #4ce5ee;
+}
+.robot-message::after { display: none; }
+.robot-message span, .robot-message b, .robot-message small { display: block; }
+.robot-message span { margin-bottom: 5px; color: #67dfea; font-size: 7px; font-weight: 800; letter-spacing: .16em; }
+.robot-message b { font-size: 13px; }
+.robot-message small { color: #bceef4; }
